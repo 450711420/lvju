@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>云南旅居聚集地 · 带院子 · 地图总览</title>
+<link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #f0f2f0;
+  color: #2c3e2d;
+}
+
+/* ── Header ── */
+header {
+  background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 55%, #52b788 100%);
+  color: #fff;
+  padding: 36px 24px 28px;
+  text-align: center;
+}
+header h1 { font-size: 2em; letter-spacing: 2px; margin-bottom: 8px; }
+header p  { opacity: .82; font-size: 1.0em; }
+
+/* ── Stats ── */
+.stats {
+  background: #fff;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0;
+  box-shadow: 0 2px 10px rgba(0,0,0,.08);
+}
+.stat {
+  padding: 14px 32px;
+  text-align: center;
+  border-right: 1px solid #eee;
+}
+.stat:last-child { border-right: none; }
+.stat-num   { font-size: 1.7em; font-weight: 700; color: #2d6a4f; }
+.stat-label { font-size: .8em; color: #888; margin-top: 2px; }
+
+/* ── Map ── */
+#map { height: 480px; width: 100%; }
+
+.leaflet-popup-content-wrapper { border-radius: 10px; }
+.popup-title { font-size: 1.05em; font-weight: 700; margin-bottom: 6px; }
+.popup-row   { font-size: .88em; color: #444; margin: 3px 0; }
+.popup-price { font-weight: 700; color: #c0392b; }
+.popup-score { display: inline-block; background: #e8f5e9; color: #2d6a4f;
+               padding: 1px 8px; border-radius: 10px; font-weight: 700; }
+
+/* ── Section heading ── */
+.sec-head {
+  text-align: center;
+  padding: 30px 16px 8px;
+  font-size: 1.4em;
+  color: #1b4332;
+  font-weight: 700;
+}
+.sec-sub { text-align: center; color: #888; font-size: .9em; margin-bottom: 18px; }
+
+/* ── Filter buttons ── */
+.filters {
+  display: flex; justify-content: center; flex-wrap: wrap;
+  gap: 8px; padding: 0 16px 20px;
+}
+.fbtn {
+  padding: 6px 18px; border-radius: 20px;
+  border: 2px solid #2d6a4f; background: #fff;
+  color: #2d6a4f; cursor: pointer; font-size: .88em;
+  transition: all .18s;
+}
+.fbtn:hover, .fbtn.on { background: #2d6a4f; color: #fff; }
+
+/* ── Cards grid ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+  padding: 0 18px 48px;
+  max-width: 1380px;
+  margin: 0 auto;
+}
+
+/* ── Card ── */
+.card {
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,.07);
+  transition: transform .2s, box-shadow .2s;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+.card:hover { transform: translateY(-5px); box-shadow: 0 10px 28px rgba(0,0,0,.14); }
+.card.flash { border-color: #2d6a4f; animation: flash .6s ease; }
+@keyframes flash { 0%,100%{border-color:#2d6a4f} 50%{border-color:#52b788} }
+
+.card-top {
+  padding: 14px 18px 12px;
+  color: #fff;
+  position: relative;
+}
+.card-rank { position: absolute; top: 12px; right: 14px; font-size: 1.5em; }
+.card-name { font-size: 1.12em; font-weight: 700; margin-bottom: 3px; }
+.card-sub  { font-size: .82em; opacity: .85; }
+
+.warn-tag {
+  display: inline-block;
+  background: rgba(255,255,255,.25);
+  border: 1px solid rgba(255,255,255,.5);
+  padding: 1px 8px; border-radius: 10px;
+  font-size: .75em; margin-left: 6px;
+}
+
+.card-body { padding: 14px 18px 4px; }
+.row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 0; border-bottom: 1px solid #f2f2f2; font-size: .88em;
+}
+.row:last-child { border-bottom: none; }
+.lbl { color: #999; }
+.val { font-weight: 500; }
+.val.cheap  { color: #27ae60; font-weight: 700; }
+.val.mid    { color: #e67e22; font-weight: 700; }
+.val.pricey { color: #c0392b; font-weight: 700; }
+.stars      { color: #f4a51a; letter-spacing: 1px; }
+.score-pill {
+  display: inline-block; background: #e8f5e9; color: #2d6a4f;
+  padding: 1px 10px; border-radius: 12px; font-weight: 700; font-size: .9em;
+}
+
+.note {
+  margin: 10px 0 6px;
+  padding: 8px 12px;
+  background: #f8faf8;
+  border-left: 3px solid;
+  border-radius: 0 8px 8px 0;
+  font-size: .84em;
+  color: #555;
+  line-height: 1.6;
+}
+
+.card-links { padding: 10px 18px 16px; display: flex; gap: 7px; flex-wrap: wrap; }
+.lnk {
+  padding: 5px 12px; border-radius: 7px;
+  font-size: .8em; text-decoration: none; transition: opacity .18s;
+}
+.lnk:hover { opacity: .78; }
+.lnk-p { background: #2d6a4f; color: #fff; }
+.lnk-s { background: #e8f5e9; color: #2d6a4f; }
+
+/* ── Legend ── */
+.legend {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 10px 20px; padding: 12px 20px;
+  background: #fff; border-top: 1px solid #eee;
+}
+.leg-item { display: flex; align-items: center; gap: 6px; font-size: .82em; color: #555; }
+.leg-dot  { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(0,0,0,.15); }
+
+/* ── Footer ── */
+footer {
+  background: #1b4332; color: rgba(255,255,255,.55);
+  text-align: center; padding: 18px; font-size: .82em; line-height: 1.7;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏡 云南旅居聚集地 · 带院子地图</h1>
+  <p>筛选条件：海拔 ≤2000m &nbsp;·&nbsp; 夏季可避暑 &nbsp;·&nbsp; 带小院子 &nbsp;·&nbsp; 2024-2025年实地数据</p>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="stat-num">15</div><div class="stat-label">推荐地点</div></div>
+  <div class="stat"><div class="stat-num">≤ 2000m</div><div class="stat-label">海拔上限</div></div>
+  <div class="stat"><div class="stat-num">383元起</div><div class="stat-label">最低月租（带院）</div></div>
+  <div class="stat"><div class="stat-num">15~27°C</div><div class="stat-label">夏季均温范围</div></div>
+  <div class="stat"><div class="stat-num">7大州市</div><div class="stat-label">覆盖区域</div></div>
+</div>
+
+<div id="map"></div>
+
+<div class="legend" id="legend"></div>
+
+<div class="sec-head">📋 15个地点详情对比</div>
+<p class="sec-sub">点击卡片 → 跳转地图定位 &nbsp;|&nbsp; 点击地图标记 → 高亮对应卡片</p>
+
+<div class="filters">
+  <button class="fbtn on" onclick="doFilter('全部',this)">全部（15）</button>
+  <button class="fbtn" onclick="doFilter('大理州',this)">大理州（5）</button>
+  <button class="fbtn" onclick="doFilter('红河州',this)">红河州（2）</button>
+  <button class="fbtn" onclick="doFilter('保山',this)">保山（1）</button>
+  <button class="fbtn" onclick="doFilter('曲靖',this)">曲靖（2）</button>
+  <button class="fbtn" onclick="doFilter('玉溪',this)">玉溪（2）</button>
+  <button class="fbtn" onclick="doFilter('昆明',this)">昆明（2）</button>
+  <button class="fbtn" onclick="doFilter('普洱',this)">普洱（1）</button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<footer>
+  数据来源：知乎 · 豆瓣 · 光明网 · 云南日报 · 腾讯新闻 · 安居客 · 整理时间：2025年6月<br>
+  价格为参考区间，实际以当地市场为准。点击各卡片链接可查看最新房源。
+</footer>
+
+<script>
+const DATA = [
+  {
+    id:1, name:"腾冲·和顺古镇", region:"保山",
+    lat:25.0197, lng:98.4944, alt:1650,
+    temp:"20~25°C", rent:"383~1500元/月", rentMin:383,
+    yard:"火山石砌传统民居，独栋带院数量多",
+    conv:3, score:9.2, rank:"🥇",
+    color:"#e76f51",
+    warn:null,
+    note:"全云南带院子租金最低！整院年租仅4600元（≈383元/月）。和顺图书馆（全国第一乡村图书馆）就在村里，侨乡文化浓厚，冬泡温泉夏避暑两不误。",
+    links:[
+      {t:"安居客找房", u:"https://bs.zu.anjuke.com/fangyuan/tengchongxian/", p:1},
+      {t:"抖音看实拍", u:"https://www.douyin.com/search/%E8%85%BE%E5%86%B2%E6%97%85%E5%B1%85%E6%88%BF%E5%87%BA%E7%A7%9F", p:0},
+      {t:"旅居经验·知乎", u:"https://zhuanlan.zhihu.com/p/270650527", p:0}
+    ]
+  },
+  {
+    id:2, name:"建水古城", region:"红河州",
+    lat:23.6166, lng:102.8270, alt:1301,
+    temp:"15~28°C", rent:"1600~1700元/月", rentMin:1600,
+    yard:"明清「四合五天井」合院，全城2000+套完整保存",
+    conv:3, score:9.0, rank:"🥈",
+    color:"#e63946",
+    warn:null,
+    note:"中国合院古城天花板。商业化极低，生活气息最浓，豆腐宴出名。整个古城就是活着的博物馆，每一条巷子都有院落。节奏最慢，最适合真正「住下来」的人。",
+    links:[
+      {t:"抖音看院子", u:"https://www.douyin.com/search/%E4%BA%91%E5%8D%97%E5%BB%BA%E6%B0%B4%E5%88%AB%E5%A2%85%E5%B8%A6%E9%99%A2%E5%AD%90%E5%87%BA%E7%A7%9F", p:1},
+      {t:"百度百科", u:"https://baike.baidu.com/item/%E5%BB%BA%E6%B0%B4%E5%8F%A4%E5%9F%8E/1220819", p:0},
+      {t:"建水旅居报道", u:"https://m.yunnan.cn/system/2025/04/11/033446431.shtml", p:0}
+    ]
+  },
+  {
+    id:3, name:"大理·双廊古镇", region:"大理州",
+    lat:25.8803, lng:100.2167, alt:1974,
+    temp:"19~25°C", rent:"999~2000元/月", rentMin:999,
+    yard:"白族「三坊一照壁」，洱海边院落，资源最丰富",
+    conv:4, score:8.8, rank:"🥉",
+    color:"#2a9d8f",
+    warn:null,
+    note:"旅居者最多的目的地，租房社群最成熟。豆瓣/小红书大理租房小组有大量真实房源。淡季（11月~4月）可以谈到很低的价格，有整院也有单间。",
+    links:[
+      {t:"豆瓣租房小组", u:"https://www.douban.com/group/topic/316578066/", p:1},
+      {t:"安居客大理", u:"https://da.zu.anjuke.com/", p:0},
+      {t:"租房避坑指南", u:"https://www.douban.com/group/topic/301362892/", p:0}
+    ]
+  },
+  {
+    id:4, name:"大理·凤阳邑村", region:"大理州",
+    lat:25.7000, lng:100.1550, alt:1975,
+    temp:"20~24°C", rent:"1500~3000元/月", rentMin:1500,
+    yard:"白族老宅小院，可长可短租，院子氛围感强",
+    conv:3, score:8.5, rank:"④",
+    color:"#2a9d8f",
+    warn:null,
+    note:"《去有风的地方》拍摄地，出圈后依然保持安静文艺。摄影师、作家、画家聚集，扎染和蜡染艺术氛围浓。很多院子里挂着各式织物，住在这里像住在画里。",
+    links:[
+      {t:"大理文旅介绍", u:"http://www.daliwenlv.com/p/2029.html", p:1},
+      {t:"凤阳小院·携程", u:"https://m.ctrip.com/html5/hotel/hoteldetail/125782144.html", p:0}
+    ]
+  },
+  {
+    id:5, name:"大理·喜洲古镇", region:"大理州",
+    lat:25.8167, lng:100.1200, alt:1980,
+    temp:"20~24°C", rent:"1500~2500元/月", rentMin:1500,
+    yard:"白族民居保存规模最大，「白族第一镇」",
+    conv:4, score:8.5, rank:"⑤",
+    color:"#2a9d8f",
+    warn:null,
+    note:"白族院落密度最高的地方，整个镇子就是传统民居的活化石。有菜市场、古镇商业街，比双廊更生活化。距大理古城约20分钟，进城买东西方便。",
+    links:[
+      {t:"Booking住宿参考", u:"https://www.booking.com/district/cn/dali-cn-4/xizhou.html", p:1}
+    ]
+  },
+  {
+    id:6, name:"大理·沙溪古镇", region:"大理州",
+    lat:26.5300, lng:99.9000, alt:2100,
+    temp:"17~22°C", rent:"2000~7333元/月", rentMin:2000,
+    yard:"茶马古道百年老宅，白族木构建筑，可租整院",
+    conv:3, score:8.3, rank:"⑥",
+    color:"#2a9d8f",
+    warn:"海拔~2100m略超标",
+    note:"⚠️ 海拔约2100m略超你的2000m要求，但气候是所有推荐地里最凉爽的（夏天最高才22°C）。极安静，几乎没有游客。有整院可租20年的选项，适合长期扎根。",
+    links:[
+      {t:"整院出租信息", u:"https://www.ljfw.com.cn/house/newsdetail_521", p:1},
+      {t:"腾讯新闻报道", u:"https://news.qq.com/rain/a/20250306A05MVD00", p:0}
+    ]
+  },
+  {
+    id:7, name:"漾濞县", region:"大理州",
+    lat:25.5400, lng:99.9600, alt:1640,
+    temp:"约22°C", rent:"500~1200元/月", rentMin:500,
+    yard:"彝族/白族乡村民居，核桃林环绕",
+    conv:2, score:7.0, rank:"⑦",
+    color:"#2a9d8f",
+    warn:null,
+    note:"大理周边最小众、最便宜的选项。核桃之乡，几乎没有外来旅居者，真正意义上的「消失」。依托大理州，可以开车进城购置生活物资。数据较少，建议实地考察。",
+    links:[]
+  },
+  {
+    id:8, name:"弥勒市", region:"红河州",
+    lat:23.4333, lng:103.4167, alt:1450,
+    temp:"22~27°C", rent:"1500~2500元/月", rentMin:1500,
+    yard:"农民自建房为主，院子较现代，传统感不足",
+    conv:5, score:7.5, rank:"⑧",
+    color:"#e63946",
+    warn:null,
+    note:"交通最便利！距昆明高铁仅30分钟，回去办事极方便。有红酒小镇、湖泉生态园、温泉度假区等配套。适合需要经常往返昆明的人。院子风格较现代，不是传统合院。",
+    links:[
+      {t:"豆瓣弥勒旅居", u:"https://www.douban.com/group/topic/304697490/", p:1}
+    ]
+  },
+  {
+    id:9, name:"曲靖·土瓜冲旅居村", region:"曲靖",
+    lat:25.4167, lng:103.3167, alt:1870,
+    temp:"20~24°C", rent:"2400~3000元/月", rentMin:2400,
+    yard:"黄墙灰瓦农家小院，含后院 + 专属菜地",
+    conv:4, score:8.0, rank:"⑨",
+    color:"#4361ee",
+    warn:null,
+    note:"政府精心打造的旅居村样板。每户配专属小管家（代买菜、收快递）和一块菜地，还有图书馆、便民医疗站、露天电影。被《光明日报》重点报道，设施最齐全。",
+    links:[
+      {t:"光明日报报道", u:"https://news.gmw.cn/2024-11/05/content_37657094.htm", p:1},
+      {t:"云南网深度报道", u:"https://society.yunnan.cn/system/2024/11/12/033299195.shtml", p:0},
+      {t:"云南日报", u:"https://m.yunnan.cn/system/2024/09/18/033233987.shtml", p:0}
+    ]
+  },
+  {
+    id:10, name:"曲靖·红瓦房村", region:"曲靖",
+    lat:25.6000, lng:103.8333, alt:1874,
+    temp:"20~24°C", rent:"2000~3000元/月", rentMin:2000,
+    yard:"四套院，大院子带好几间屋，适合家庭或多人",
+    conv:3, score:7.5, rank:"⑩",
+    color:"#4361ee",
+    warn:null,
+    note:"气候好、交通好、物价低，大院子体量大，适合多人共住或家庭旅居。政府100个旅居项目之一。曲靖沾益区，距昆明约90公里，可自驾往返。",
+    links:[]
+  },
+  {
+    id:11, name:"澄江·抚仙湖马房村", region:"玉溪",
+    lat:24.6667, lng:102.9167, alt:1722,
+    temp:"约22°C", rent:"1500~2500元/月", rentMin:1500,
+    yard:"湖边民居，部分带小院，湖景资源独特",
+    conv:3, score:7.8, rank:"⑪",
+    color:"#7209b7",
+    warn:null,
+    note:"中国最深淡水湖——抚仙湖北岸，能见度高达12米的蓝色湖水就在门口。6~9月旺季入住率超90%，有80%的人会住超一个月。一对夫妻住两个月总花费9000元。",
+    links:[
+      {t:"旅居抚仙湖", u:"https://www.lijiang.cn/article/148167.html", p:1}
+    ]
+  },
+  {
+    id:12, name:"昆明·海晏村（滇池边）", region:"昆明",
+    lat:24.8700, lng:102.7900, alt:1891,
+    temp:"18~25°C", rent:"1500~3000元/月", rentMin:1500,
+    yard:"600年历史古渔村，青瓦白墙土坯老宅",
+    conv:4, score:7.8, rank:"⑫",
+    color:"#009688",
+    warn:null,
+    note:"滇池东岸呈贡区，落霞日落是一绝。村内已有民宿、咖啡馆、非遗工坊、书屋等旅居业态，年接待游客240万。距昆明城区30~40分钟，生活配套依托主城。",
+    links:[
+      {t:"云南日报报道", u:"https://www.yndaily.com/html/2025/yunxinwen_0309/133166.html", p:1}
+    ]
+  },
+  {
+    id:13, name:"石林县·五棵树村", region:"昆明",
+    lat:24.7719, lng:103.2889, alt:1700,
+    temp:"20~23°C", rent:"1200~2000元/月", rentMin:1200,
+    yard:"撒尼族村寨民居，彝族文化浓郁",
+    conv:3, score:7.0, rank:"⑬",
+    color:"#009688",
+    warn:null,
+    note:"石林景区附近，已有72家民宿，其中24家是外来旅居客自己投资改造的。撒尼族火把节文化，距昆明约90公里，适合喜欢少数民族文化氛围的人。",
+    links:[]
+  },
+  {
+    id:14, name:"昆明市区", region:"昆明",
+    lat:25.0389, lng:102.7183, alt:1891,
+    temp:"18~25°C", rent:"2000~5000元/月", rentMin:2000,
+    yard:"城郊老宅或独院，带院子需在郊区找",
+    conv:5, score:7.2, rank:"⑭",
+    color:"#009688",
+    warn:null,
+    note:"「春城」，四季如春，不用空调，年均温约15°C。省会城市，医疗/教育/交通/购物最完善，机场直达全国。带院子的老宅多在西山、呈贡、官渡等城郊区域。",
+    links:[
+      {t:"安居客昆明找院子", u:"https://km.zu.anjuke.com/bieshu-zufang/", p:1}
+    ]
+  },
+  {
+    id:15, name:"普洱·思茅区", region:"普洱",
+    lat:22.7667, lng:100.9667, alt:1302,
+    temp:"约24°C", rent:"1500~2000元/月", rentMin:1500,
+    yard:"有带院民居，传统感不如建水/大理，但绿化极好",
+    conv:3, score:7.3, rank:"⑮",
+    color:"#795548",
+    warn:null,
+    note:"绿化最好、人最少、空气最清新的城市之一。普洱茶产地，随时可以去茶山。高铁约2.5小时到昆明。真正想静下来读书写作的人，这里比大理安静百倍。",
+    links:[]
+  }
+];
+
+const REGION_COLORS = {
+  "大理州":"#2a9d8f","红河州":"#e63946","保山":"#e76f51",
+  "曲靖":"#4361ee","玉溪":"#7209b7","昆明":"#009688","普洱":"#795548"
+};
+
+// ── Map ──
+const map = L.map('map').setView([24.5, 101.5], 7);
+// 高德地图瓦片（国内访问最快，微信内可用）
+L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+  subdomains: '1234',
+  attribution: '© 高德地图',
+  maxZoom: 18
+}).addTo(map);
+
+const markers = {};
+
+DATA.forEach(d => {
+  const m = L.circleMarker([d.lat, d.lng], {
+    radius: 14, fillColor: d.color, color: '#fff',
+    weight: 2.5, opacity: 1, fillOpacity: .9
+  }).addTo(map);
+
+  m.bindPopup(`
+    <div style="min-width:210px;font-family:-apple-system,'PingFang SC',sans-serif">
+      <div class="popup-title">${d.rank} ${d.name}</div>
+      <div class="popup-row">📍 ${d.region} &nbsp;·&nbsp; 海拔 ${d.alt}m</div>
+      <div class="popup-row">🌡️ 夏季均温 ${d.temp}</div>
+      <div class="popup-row">💰 带院月租 <span class="popup-price">${d.rent}</span></div>
+      <div class="popup-row">🏡 ${d.yard.slice(0,30)}…</div>
+      <div class="popup-row">⭐ 综合推荐 <span class="popup-score">${d.score}/10</span></div>
+      ${d.warn ? `<div class="popup-row" style="color:#b45309">⚠️ ${d.warn}</div>` : ''}
+    </div>
+  `, {maxWidth: 280});
+
+  // 点地图 → 高亮卡片
+  m.on('click', () => {
+    const card = document.getElementById('c' + d.id);
+    if (!card) return;
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('flash'));
+    card.classList.add('flash');
+    setTimeout(() => card.classList.remove('flash'), 1800);
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+
+  markers[d.id] = m;
+});
+
+// ── Legend ──
+const legEl = document.getElementById('legend');
+Object.entries(REGION_COLORS).forEach(([r, c]) => {
+  const count = DATA.filter(d => d.region === r).length;
+  legEl.innerHTML += `
+    <div class="leg-item">
+      <div class="leg-dot" style="background:${c}"></div>
+      ${r}（${count}个）
+    </div>`;
+});
+
+// ── Cards ──
+function rentClass(min) {
+  if (min < 1000) return 'cheap';
+  if (min < 2000) return 'mid';
+  return 'pricey';
+}
+
+function renderCards(filter) {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  const list = filter === '全部' ? DATA : DATA.filter(d => d.region === filter);
+
+  list.forEach(d => {
+    const stars = '★'.repeat(d.conv) + '☆'.repeat(5 - d.conv);
+    const linksHtml = d.links.map(l =>
+      `<a class="lnk ${l.p ? 'lnk-p' : 'lnk-s'}" href="${l.u}" target="_blank">${l.t}</a>`
+    ).join('');
+    const warnHtml = d.warn ? `<span class="warn-tag">⚠️ ${d.warn}</span>` : '';
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = 'c' + d.id;
+    card.dataset.region = d.region;
+    card.innerHTML = `
+      <div class="card-top" style="background:${d.color}">
+        <div class="card-rank">${d.rank}</div>
+        <div class="card-name">${d.name}</div>
+        <div class="card-sub">${d.region} ${warnHtml}</div>
+      </div>
+      <div class="card-body">
+        <div class="row"><span class="lbl">📐 海拔</span><span class="val">${d.alt} m</span></div>
+        <div class="row"><span class="lbl">🌡️ 夏季均温</span><span class="val">${d.temp}</span></div>
+        <div class="row"><span class="lbl">💰 带院月租</span><span class="val ${rentClass(d.rentMin)}">${d.rent}</span></div>
+        <div class="row"><span class="lbl">🏡 院子类型</span><span class="val" style="text-align:right;max-width:65%">${d.yard}</span></div>
+        <div class="row"><span class="lbl">🛒 生活便利</span><span class="stars">${stars}</span></div>
+        <div class="row"><span class="lbl">⭐ 综合推荐</span><span class="score-pill">${d.score} / 10</span></div>
+        <div class="note" style="border-color:${d.color}">${d.note}</div>
+      </div>
+      ${d.links.length ? `<div class="card-links">${linksHtml}</div>` : ''}
+    `;
+
+    // 点卡片 → 跳地图
+    card.addEventListener('click', e => {
+      if (e.target.tagName === 'A') return;
+      map.setView([d.lat, d.lng], 12, { animate: true });
+      markers[d.id].openPopup();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    grid.appendChild(card);
+  });
+}
+
+function doFilter(region, btn) {
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderCards(region);
+}
+
+renderCards('全部');
+</script>
+</body>
+</html>
